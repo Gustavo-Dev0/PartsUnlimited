@@ -1,0 +1,73 @@
+# ASP.NET
+# Build and test ASP.NET projects.
+# Add steps that publish symbols, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
+
+trigger:
+- master
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+
+    pool:
+      vmImage: 'vs2017-win2016'
+
+    variables:
+      solution: '**/*.sln'
+      buildPlatform: 'Any CPU'
+      buildConfiguration: 'Release'
+
+    steps:
+    - task: NuGetToolInstaller@0
+
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: CopyFiles@2
+      displayName: 'Copy Files'
+      inputs:
+        SourceFolder: '$(build.sourcesdirectory)'
+        Contents: '**/*.json'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact'
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)'
+    
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: Deploy
+  jobs:
+  - job: Deploy
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'drop'
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'Azure for Students(1)(2c59b9ee-243d-4b69-ae35-7528bf89ec18)'
+        appType: 'webApp'
+        WebAppName: 'pul-yaml-gustavo'
+        packageForLinux: 'D:\a\1\a\drop/PartsUnlimitedWebsite.zip'
+        
+    
